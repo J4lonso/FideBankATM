@@ -41,8 +41,6 @@ Al iniciar por primera vez se crean dos cuentas de prueba:
 - HU-10: Bloqueo de cuenta tras 3 intentos de PIN incorrectos (`Cuenta.validarPin`,
   excepcion `CuentaBloqueadaException`).
 
-Se implementaron 10 de las 10 historias de usuario definidas en el Avance 1 (100%, supera el 40%
-minimo solicitado en la rubrica).
 
 ## Conceptos de POO evidenciados
 
@@ -64,5 +62,4 @@ minimo solicitado en la rubrica).
 
 - Validaciones adicionales de formato (cedula, correo).
 - Persistencia automatica al cerrar sesion / al crear cuentas.
-- Empaquetado final y publicacion del historial de commits en GitHub (rubro 3 de este avance,
-  no cubierto por el codigo en si).
+
