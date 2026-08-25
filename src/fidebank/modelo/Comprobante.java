@@ -36,7 +36,7 @@ public class Comprobante implements Serializable {
 
     /** HU-07: simula la impresion fisica del comprobante (delegado a un hilo impresor). */
     public void imprimir() {
-        fidebank.servicio.Impresora.getInstancia().encolar(this);
+        fidebank.servicio.Impresora.getInstancia().encolar(generar());
     }
 
     public int getIdComprobante() {

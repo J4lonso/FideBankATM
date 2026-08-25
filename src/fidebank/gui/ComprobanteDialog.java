@@ -1,21 +1,23 @@
 package fidebank.gui;
 
-import fidebank.modelo.Comprobante;
+import fidebank.servicio.Impresora;
 
 import javax.swing.*;
 import java.awt.*;
 
 /**
- * Muestra el comprobante de una transaccion y permite "imprimirlo" (HU-07).
+ * Muestra el comprobante de una transaccion (el texto ya viene formateado desde el
+ * servidor, dentro de Respuesta.getMensaje()) y permite "imprimirlo" localmente en
+ * el cajero (HU-07).
  */
 public class ComprobanteDialog extends JDialog {
 
-    public ComprobanteDialog(Frame padre, Comprobante comprobante) {
+    public ComprobanteDialog(Frame padre, String textoComprobante) {
         super(padre, "Comprobante", true);
-        construirInterfaz(comprobante);
+        construirInterfaz(textoComprobante);
     }
 
-    private void construirInterfaz(Comprobante comprobante) {
+    private void construirInterfaz(String textoComprobante) {
         setSize(340, 380);
         setLocationRelativeTo(getParent());
 
@@ -31,7 +33,7 @@ public class ComprobanteDialog extends JDialog {
         titulo.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         raiz.add(titulo, BorderLayout.NORTH);
 
-        JTextArea texto = new JTextArea(comprobante.generar());
+        JTextArea texto = new JTextArea(textoComprobante);
         texto.setEditable(false);
         texto.setFont(new Font("Monospaced", Font.PLAIN, 12));
         texto.setBackground(Estilos.FONDO);
@@ -42,7 +44,7 @@ public class ComprobanteDialog extends JDialog {
         JButton imprimir = new JButton("Imprimir");
         imprimir.setBackground(Estilos.BOTON_VERDE);
         imprimir.addActionListener(e -> {
-            comprobante.imprimir();
+            Impresora.getInstancia().encolar(textoComprobante);
             JOptionPane.showMessageDialog(this, "Comprobante enviado a la impresora.");
         });
         JButton finalizar = new JButton("Finalizar");

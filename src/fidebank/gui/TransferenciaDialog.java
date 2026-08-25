@@ -1,29 +1,31 @@
 package fidebank.gui;
 
-import fidebank.excepciones.CuentaNoEncontradaException;
-import fidebank.excepciones.SaldoInsuficienteException;
-import fidebank.modelo.Cuenta;
-import fidebank.modelo.Transaccion;
-import fidebank.servicio.Banco;
+import fidebank.red.ClienteRed;
+import fidebank.red.Peticion;
+import fidebank.red.Respuesta;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.IOException;
 
 /**
- * Pantalla de transferencia entre cuentas (HU-06).
+ * Pantalla de transferencia entre cuentas (HU-06). Envia la peticion al servidor
+ * por la conexion de red ya abierta.
  */
 public class TransferenciaDialog extends JDialog {
 
-    private final Cuenta cuentaOrigen;
+    private final ClienteRed clienteRed;
+    private final String numeroCuentaOrigen;
     private final MenuPrincipalFrame padre;
     private JTextField campoDestino;
     private JTextField campoMonto;
     private JLabel etiquetaMensaje;
 
-    public TransferenciaDialog(MenuPrincipalFrame padre, Cuenta cuentaOrigen) {
+    public TransferenciaDialog(MenuPrincipalFrame padre, ClienteRed clienteRed, String numeroCuentaOrigen) {
         super(padre, "Transferencia entre Cuentas", true);
         this.padre = padre;
-        this.cuentaOrigen = cuentaOrigen;
+        this.clienteRed = clienteRed;
+        this.numeroCuentaOrigen = numeroCuentaOrigen;
         construirInterfaz();
     }
 
@@ -47,7 +49,7 @@ public class TransferenciaDialog extends JDialog {
         centro.setOpaque(false);
         centro.setLayout(new BoxLayout(centro, BoxLayout.Y_AXIS));
 
-        centro.add(etiqueta("Cuenta origen: " + cuentaOrigen.getNumeroCuenta()));
+        centro.add(etiqueta("Cuenta origen: " + numeroCuentaOrigen));
         centro.add(Box.createVerticalStrut(15));
 
         centro.add(etiqueta("Cuenta destino"));
@@ -106,12 +108,16 @@ public class TransferenciaDialog extends JDialog {
             return;
         }
         try {
-            Transaccion transaccion = Banco.getInstancia().transferir(cuentaOrigen, destino, monto);
-            padre.actualizarSaldo();
-            dispose();
-            new ComprobanteDialog(padre, transaccion.generarComprobante()).setVisible(true);
-        } catch (SaldoInsuficienteException | CuentaNoEncontradaException ex) {
-            etiquetaMensaje.setText(ex.getMessage());
+            Respuesta respuesta = clienteRed.enviar(Peticion.transferir(numeroCuentaOrigen, destino, monto));
+            if (respuesta.isExitosa()) {
+                padre.actualizarSaldo(respuesta.getSaldo());
+                dispose();
+                new ComprobanteDialog(padre, respuesta.getMensaje()).setVisible(true);
+            } else {
+                etiquetaMensaje.setText(respuesta.getMensaje());
+            }
+        } catch (IOException ex) {
+            etiquetaMensaje.setText("Error de conexion con el servidor: " + ex.getMessage());
         }
     }
 }

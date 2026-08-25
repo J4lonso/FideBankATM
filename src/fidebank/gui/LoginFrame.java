@@ -1,19 +1,27 @@
 package fidebank.gui;
 
-import fidebank.excepciones.CuentaBloqueadaException;
-import fidebank.excepciones.CuentaNoEncontradaException;
-import fidebank.excepciones.PinInvalidoException;
-import fidebank.modelo.Cuenta;
-import fidebank.servicio.Banco;
+import fidebank.red.ClienteRed;
+import fidebank.red.Peticion;
+import fidebank.red.Respuesta;
+import fidebank.red.ServidorFideBank;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.IOException;
 
 /**
  * Pantalla de ingreso del cajero automatico (HU-02, HU-10).
  * El cliente ingresa su numero de cuenta y PIN para acceder a sus tramites bancarios.
+ *
+ * A diferencia de versiones anteriores, esta pantalla ya NO llama a Banco directamente:
+ * abre una conexion de red (ClienteRed) contra el servidor FideBank y envia la peticion
+ * de autenticacion por socket. El servidor es quien valida el PIN contra los datos
+ * cargados desde MySQL.
  */
 public class LoginFrame extends JFrame {
+
+    public static final String HOST_SERVIDOR = "localhost";
+    public static final int PUERTO_SERVIDOR = ServidorFideBank.PUERTO_POR_DEFECTO;
 
     private JTextField campoCuenta;
     private JPasswordField campoPin;
@@ -26,7 +34,7 @@ public class LoginFrame extends JFrame {
 
     private void construirInterfaz() {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(360, 480);
+        setSize(360, 500);
         setLocationRelativeTo(null);
         setResizable(false);
 
@@ -82,7 +90,8 @@ public class LoginFrame extends JFrame {
         centro.add(etiquetaMensaje);
 
         centro.add(Box.createVerticalStrut(20));
-        JLabel demo = new JLabel("<html><center>Cuentas demo:<br>100000 / PIN 1234<br>100001 / PIN 5678</center></html>");
+        JLabel demo = new JLabel("<html><center>Cuentas demo:<br>100000 / PIN 1234<br>100001 / PIN 5678"
+            + "<br><br>Servidor: " + HOST_SERVIDOR + ":" + PUERTO_SERVIDOR + "</center></html>");
         demo.setForeground(Color.GRAY);
         demo.setAlignmentX(Component.CENTER_ALIGNMENT);
         centro.add(demo);
@@ -113,17 +122,26 @@ public class LoginFrame extends JFrame {
             return;
         }
 
+        ClienteRed clienteRed = null;
         try {
-            Cuenta cuenta = Banco.getInstancia().autenticar(numeroCuenta, pin);
-            etiquetaMensaje.setText(" ");
-            new MenuPrincipalFrame(cuenta).setVisible(true);
-            dispose();
-        } catch (PinInvalidoException ex) {
-            etiquetaMensaje.setText(ex.getMessage());
-            campoPin.setText("");
-        } catch (CuentaBloqueadaException | CuentaNoEncontradaException ex) {
-            etiquetaMensaje.setText(ex.getMessage());
-            campoPin.setText("");
+            clienteRed = new ClienteRed(HOST_SERVIDOR, PUERTO_SERVIDOR);
+            Respuesta respuesta = clienteRed.enviar(Peticion.autenticar(numeroCuenta, pin));
+
+            if (respuesta.isExitosa()) {
+                etiquetaMensaje.setText(" ");
+                new MenuPrincipalFrame(clienteRed, respuesta.getNumeroCuenta(), respuesta.getSaldo())
+                    .setVisible(true);
+                dispose();
+            } else {
+                etiquetaMensaje.setText(respuesta.getMensaje());
+                campoPin.setText("");
+                clienteRed.close();
+            }
+        } catch (IOException ex) {
+            etiquetaMensaje.setText("No se pudo conectar al servidor FideBank (" + ex.getMessage() + ")");
+            if (clienteRed != null) {
+                clienteRed.close();
+            }
         }
     }
 }
