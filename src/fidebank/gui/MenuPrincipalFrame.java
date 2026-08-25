@@ -1,8 +1,6 @@
 package fidebank.gui;
 
-import fidebank.modelo.Cuenta;
-import fidebank.persistencia.Persistencia;
-import fidebank.servicio.Banco;
+import fidebank.red.ClienteRed;
 
 import javax.swing.*;
 import java.awt.*;
@@ -10,15 +8,22 @@ import java.awt.*;
 /**
  * Menu principal de transacciones del cajero automatico.
  * Historia de usuario relacionada: HU-03 (consulta de saldo) y punto de acceso al resto de HUs.
+ *
+ * Mantiene la conexion de red (ClienteRed) abierta durante toda la sesion del cliente en
+ * el cajero, y la comparte con cada dialogo de transaccion.
  */
 public class MenuPrincipalFrame extends JFrame {
 
-    private final Cuenta cuenta;
+    private final ClienteRed clienteRed;
+    private final String numeroCuenta;
+    private double saldoActual;
     private JLabel etiquetaSaldo;
 
-    public MenuPrincipalFrame(Cuenta cuenta) {
+    public MenuPrincipalFrame(ClienteRed clienteRed, String numeroCuenta, double saldoInicial) {
         super("FideBank ATM - Menu Principal");
-        this.cuenta = cuenta;
+        this.clienteRed = clienteRed;
+        this.numeroCuenta = numeroCuenta;
+        this.saldoActual = saldoInicial;
         construirInterfaz();
     }
 
@@ -46,23 +51,23 @@ public class MenuPrincipalFrame extends JFrame {
 
         etiquetaSaldo = new JLabel();
         etiquetaSaldo.setAlignmentX(Component.CENTER_ALIGNMENT);
-        actualizarSaldo();
+        actualizarSaldo(saldoActual);
         centro.add(etiquetaSaldo);
         centro.add(Box.createVerticalStrut(15));
 
-        centro.add(boton("Retirar fondos", e -> new RetiroDialog(this, cuenta).setVisible(true)));
+        centro.add(boton("Retirar fondos", e -> new RetiroDialog(this, clienteRed, numeroCuenta, saldoActual).setVisible(true)));
         centro.add(Box.createVerticalStrut(8));
-        centro.add(boton("Depositar dinero", e -> new DepositoDialog(this, cuenta).setVisible(true)));
+        centro.add(boton("Depositar dinero", e -> new DepositoDialog(this, clienteRed, numeroCuenta).setVisible(true)));
         centro.add(Box.createVerticalStrut(8));
-        centro.add(boton("Transferir entre cuentas", e -> new TransferenciaDialog(this, cuenta).setVisible(true)));
+        centro.add(boton("Transferir entre cuentas", e -> new TransferenciaDialog(this, clienteRed, numeroCuenta).setVisible(true)));
         centro.add(Box.createVerticalStrut(8));
-        centro.add(boton("Ver historial", e -> new HistorialDialog(this, cuenta).setVisible(true)));
+        centro.add(boton("Ver historial", e -> new HistorialDialog(this, clienteRed, numeroCuenta).setVisible(true)));
         centro.add(Box.createVerticalStrut(20));
 
         JButton salir = new JButton("Salir");
         salir.setAlignmentX(Component.CENTER_ALIGNMENT);
         salir.addActionListener(e -> {
-            Persistencia.guardar(Banco.getInstancia());
+            clienteRed.close();
             dispose();
             new LoginFrame().setVisible(true);
         });
@@ -72,11 +77,12 @@ public class MenuPrincipalFrame extends JFrame {
         setContentPane(raiz);
     }
 
-    /** HU-03: refresca el saldo disponible mostrado en pantalla. */
-    public void actualizarSaldo() {
+    /** HU-03: refresca el saldo disponible mostrado en pantalla con el ultimo valor que envio el servidor. */
+    public void actualizarSaldo(double nuevoSaldo) {
+        this.saldoActual = nuevoSaldo;
         etiquetaSaldo.setText(String.format(
             "<html><center>Cuenta: %s<br>Saldo disponible: CRC %,.2f</center></html>",
-            cuenta.getNumeroCuenta(), cuenta.consultarSaldo()));
+            numeroCuenta, saldoActual));
     }
 
     private JButton boton(String texto, java.awt.event.ActionListener accion) {

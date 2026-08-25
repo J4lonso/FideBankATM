@@ -1,27 +1,31 @@
 package fidebank.gui;
 
-import fidebank.modelo.Cuenta;
-import fidebank.modelo.Transaccion;
-import fidebank.servicio.Banco;
+import fidebank.red.ClienteRed;
+import fidebank.red.Peticion;
+import fidebank.red.Respuesta;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.IOException;
 
 /**
- * Pantalla de deposito de dinero (HU-05).
+ * Pantalla de deposito de dinero (HU-05). Envia la peticion al servidor por la
+ * conexion de red ya abierta.
  */
 public class DepositoDialog extends JDialog {
 
-    private final Cuenta cuenta;
+    private final ClienteRed clienteRed;
+    private final String numeroCuenta;
     private final MenuPrincipalFrame padre;
     private JTextField campoMonto;
     private JComboBox<String> comboTipo;
     private JLabel etiquetaMensaje;
 
-    public DepositoDialog(MenuPrincipalFrame padre, Cuenta cuenta) {
+    public DepositoDialog(MenuPrincipalFrame padre, ClienteRed clienteRed, String numeroCuenta) {
         super(padre, "Deposito de Dinero", true);
         this.padre = padre;
-        this.cuenta = cuenta;
+        this.clienteRed = clienteRed;
+        this.numeroCuenta = numeroCuenta;
         construirInterfaz();
     }
 
@@ -98,9 +102,17 @@ public class DepositoDialog extends JDialog {
             return;
         }
         String tipo = (String) comboTipo.getSelectedItem();
-        Transaccion transaccion = Banco.getInstancia().depositar(cuenta, monto, tipo);
-        padre.actualizarSaldo();
-        dispose();
-        new ComprobanteDialog(padre, transaccion.generarComprobante()).setVisible(true);
+        try {
+            Respuesta respuesta = clienteRed.enviar(Peticion.depositar(numeroCuenta, monto, tipo));
+            if (respuesta.isExitosa()) {
+                padre.actualizarSaldo(respuesta.getSaldo());
+                dispose();
+                new ComprobanteDialog(padre, respuesta.getMensaje()).setVisible(true);
+            } else {
+                etiquetaMensaje.setText(respuesta.getMensaje());
+            }
+        } catch (IOException ex) {
+            etiquetaMensaje.setText("Error de conexion con el servidor: " + ex.getMessage());
+        }
     }
 }

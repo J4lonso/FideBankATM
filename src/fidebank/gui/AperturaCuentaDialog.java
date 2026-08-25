@@ -1,10 +1,12 @@
 package fidebank.gui;
 
-import fidebank.modelo.Cuenta;
-import fidebank.servicio.Banco;
+import fidebank.red.ClienteRed;
+import fidebank.red.Peticion;
+import fidebank.red.Respuesta;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.IOException;
 
 /**
  * Pantalla de apertura de cuentas de clientes (HU-01).
@@ -125,12 +127,20 @@ public class AperturaCuentaDialog extends JDialog {
             return;
         }
 
-        Cuenta cuenta = Banco.getInstancia().abrirCuenta(
-            nombre, cedula, "", telefono, correo, tipo, deposito, pin);
+        try (ClienteRed clienteRed = new ClienteRed(LoginFrame.HOST_SERVIDOR, LoginFrame.PUERTO_SERVIDOR)) {
+            Respuesta respuesta = clienteRed.enviar(
+                Peticion.abrirCuenta(nombre, cedula, telefono, correo, tipo, deposito, pin));
 
-        JOptionPane.showMessageDialog(this,
-            "Cuenta creada con exito.\nNumero de cuenta: " + cuenta.getNumeroCuenta()
-                + "\nGuarde este numero junto con su PIN.");
-        dispose();
+            if (!respuesta.isExitosa()) {
+                etiquetaMensaje.setText(respuesta.getMensaje());
+                return;
+            }
+            JOptionPane.showMessageDialog(this,
+                "Cuenta creada con exito.\nNumero de cuenta: " + respuesta.getNumeroCuenta()
+                    + "\nGuarde este numero junto con su PIN.");
+            dispose();
+        } catch (IOException ex) {
+            etiquetaMensaje.setText("No se pudo conectar al servidor FideBank (" + ex.getMessage() + ")");
+        }
     }
 }

@@ -1,31 +1,34 @@
 package fidebank.gui;
 
-import fidebank.excepciones.SaldoInsuficienteException;
-import fidebank.modelo.Cuenta;
-import fidebank.modelo.Transaccion;
-import fidebank.servicio.Banco;
+import fidebank.red.ClienteRed;
+import fidebank.red.Peticion;
+import fidebank.red.Respuesta;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.IOException;
 
 /**
- * Pantalla de retiro de fondos (HU-04).
+ * Pantalla de retiro de fondos (HU-04). Envia la peticion al servidor por la
+ * conexion de red ya abierta; el servidor valida fondos y actualiza MySQL.
  */
 public class RetiroDialog extends JDialog {
 
-    private final Cuenta cuenta;
+    private final ClienteRed clienteRed;
+    private final String numeroCuenta;
     private final MenuPrincipalFrame padre;
     private JTextField campoMonto;
     private JLabel etiquetaMensaje;
 
-    public RetiroDialog(MenuPrincipalFrame padre, Cuenta cuenta) {
+    public RetiroDialog(MenuPrincipalFrame padre, ClienteRed clienteRed, String numeroCuenta, double saldoActual) {
         super(padre, "Retiro de Fondos", true);
         this.padre = padre;
-        this.cuenta = cuenta;
-        construirInterfaz();
+        this.clienteRed = clienteRed;
+        this.numeroCuenta = numeroCuenta;
+        construirInterfaz(saldoActual);
     }
 
-    private void construirInterfaz() {
+    private void construirInterfaz(double saldoActual) {
         setSize(340, 420);
         setLocationRelativeTo(padre);
 
@@ -45,7 +48,7 @@ public class RetiroDialog extends JDialog {
         centro.setOpaque(false);
         centro.setLayout(new BoxLayout(centro, BoxLayout.Y_AXIS));
 
-        JLabel saldo = new JLabel(String.format("Saldo disponible: CRC %,.2f", cuenta.consultarSaldo()));
+        JLabel saldo = new JLabel(String.format("Saldo disponible: CRC %,.2f", saldoActual));
         saldo.setAlignmentX(Component.CENTER_ALIGNMENT);
         centro.add(saldo);
         centro.add(Box.createVerticalStrut(15));
@@ -107,12 +110,16 @@ public class RetiroDialog extends JDialog {
             return;
         }
         try {
-            Transaccion transaccion = Banco.getInstancia().retirar(cuenta, monto);
-            padre.actualizarSaldo();
-            dispose();
-            new ComprobanteDialog(padre, transaccion.generarComprobante()).setVisible(true);
-        } catch (SaldoInsuficienteException ex) {
-            etiquetaMensaje.setText(ex.getMessage());
+            Respuesta respuesta = clienteRed.enviar(Peticion.retirar(numeroCuenta, monto));
+            if (respuesta.isExitosa()) {
+                padre.actualizarSaldo(respuesta.getSaldo());
+                dispose();
+                new ComprobanteDialog(padre, respuesta.getMensaje()).setVisible(true);
+            } else {
+                etiquetaMensaje.setText(respuesta.getMensaje());
+            }
+        } catch (IOException ex) {
+            etiquetaMensaje.setText("Error de conexion con el servidor: " + ex.getMessage());
         }
     }
 }
