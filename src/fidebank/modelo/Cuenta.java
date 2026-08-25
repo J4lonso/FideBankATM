@@ -97,6 +97,14 @@ public class Cuenta implements Serializable {
         return numeroCuenta;
     }
 
+    /**
+     * Expone el PIN solo para uso interno del servidor (persistencia en MySQL).
+     * No se envia nunca al cliente a traves del protocolo de red (ver clase Respuesta).
+     */
+    public String getPin() {
+        return pin;
+    }
+
     public String getTipoCuenta() {
         return tipoCuenta;
     }
