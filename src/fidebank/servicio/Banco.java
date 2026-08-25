@@ -119,6 +119,11 @@ public class Banco implements Serializable {
         return cuenta;
     }
 
+    /** Igual que buscarCuenta, pero retorna null en vez de lanzar excepcion (uso interno). */
+    public Cuenta buscarCuentaSilenciosa(String numeroCuenta) {
+        return cuentas.get(numeroCuenta);
+    }
+
     public List<Cuenta> listarCuentas() {
         return new ArrayList<>(cuentas.values());
     }
@@ -129,5 +134,29 @@ public class Banco implements Serializable {
 
     public int cantidadCuentas() {
         return cuentas.size();
+    }
+
+    /**
+     * Inserta en memoria un Cliente y una Cuenta ya existentes (por ejemplo, cargados desde
+     * MySQL al iniciar el servidor) sin pasar por abrirCuenta(), preservando sus datos originales.
+     * Ajusta los contadores internos para que las proximas cuentas/clientes nuevos no choquen
+     * con los identificadores ya usados.
+     */
+    public void registrarDesdePersistencia(Cliente cliente, Cuenta cuenta) {
+        clientes.putIfAbsent(cliente.getCedula(), cliente);
+        clientes.get(cliente.getCedula()).agregarCuenta(cuenta);
+        cuentas.put(cuenta.getNumeroCuenta(), cuenta);
+
+        if (cliente.getIdCliente() >= siguienteIdCliente) {
+            siguienteIdCliente = cliente.getIdCliente() + 1;
+        }
+        try {
+            int numero = Integer.parseInt(cuenta.getNumeroCuenta());
+            if (numero >= siguienteNumeroCuenta) {
+                siguienteNumeroCuenta = numero + 1;
+            }
+        } catch (NumberFormatException ignorado) {
+            // Numeros de cuenta no numericos no afectan el contador.
+        }
     }
 }
